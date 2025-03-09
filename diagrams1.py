@@ -181,12 +181,14 @@ class PlotWidget(QWidget):
         self.cones_db.setfunctions(functions)
         # определить оси и сетку
         self.funcs = self.cones_db.function_points(a, b, n)
+        for func in self.funcs:
+            print(func)
         self.masses = self.cones_db.define_data(self.funcs)
         # определить размеры конусов и их положение
         self.arg_funcs = self.cones_db.graph_points(a, b, n)
         self.cones_params = self.cones_db.define_graph(self.arg_funcs)
-        for cone_params in self.cones_params:
-            print(cone_params)
+        # for cone_params in self.cones_params:
+        #     print(cone_params)
         self.cones = self.cones_db.define_cones(self.cones_params)
         for cone_data in self.cones:
             print(cone_data)
@@ -215,7 +217,7 @@ class PlotWidget(QWidget):
         if len(self.functions)>0:
             self.draw_grid(painter)
             self.draw_points(painter, self.funcs)
-            # self.draw_cones(painter, self.cones)
+            self.draw_cones(painter, self.cones)
             self.draw_axes(painter)
             # self.draw_legend(painter, self.cones)
 
@@ -346,10 +348,17 @@ class PlotWidget(QWidget):
         # cross_x = crosses[0]
         cross_y = crosses
 
+        minh = math.floor(min(self.masses[0]))  #
+        maxh = math.ceil(max(self.masses[0]))
+
+        used_height = (maxh - minh) * scale_x
+
         # будет здесь отрисовка конусов
         for cones in cones_data:
-            x = cones[0]
+            x = cones[0] # это аргумент в значении
+            px = (1 - ((x - minh) / (maxh - minh))) * used_height + 2 * scale_x # это аргумент в пикселях
             color_num = 0
+            # часть сугубо на проверку наличия конуса с положительным значением + учитывание прикола с отрицательным
             first_below_zero = True
             is_there_above_zero = False
             for cone in cones[1]:
@@ -357,6 +366,8 @@ class PlotWidget(QWidget):
                 cone_height = cone[1]
                 if height+cone_height > 0:
                     is_there_above_zero = True
+
+            # пошла отрисовка
             for cone in cones[1]:
                 color = COLOR_PALETTE[color_num % len(COLOR_PALETTE)]
                 painter.setPen(QPen(color, 1))
@@ -367,12 +378,12 @@ class PlotWidget(QWidget):
                 # это какой-то прикол
 
                 # в эой строке рисуется нижняя линия треугольника (конуса)
-                painter.drawLine(cross_y+(height+cone_height)*scale_y,cross_x-x*scale_x,
-                                 cross_y+height*scale_y,cross_x-(x-radius)*scale_x)
+                painter.drawLine(cross_y+(height+cone_height)*scale_y,px,
+                                 cross_y+height*scale_y,px - radius*scale_x)
                 # а в этой уже верхняя (там y2 просто использует cross_x-(x+radius)*scale_x для большего вычитаемого
                 # ,что будет давать ПОДЪЁМ
-                painter.drawLine(cross_y+(height+cone_height)*scale_y,cross_x-x*scale_x,
-                                 cross_y+height*scale_y,cross_x-(x+radius)*scale_x)
+                painter.drawLine(cross_y+(height+cone_height)*scale_y,px,
+                                 cross_y+height*scale_y,px + radius*scale_x)
                 #а сейчас вообще будет цикл, чтоб было заполнение
                 heights = []
                 for coord in range(math.floor((x - radius) * scale_x), math.floor((x + radius) * scale_x) + 1):
@@ -380,7 +391,7 @@ class PlotWidget(QWidget):
                 amortization = max(heights)
                 # print(f"x {x} cross_y {cross_y} height {height} cone height {cone_height}")
 
-                for coord in range(math.floor((x-radius)*scale_x),math.ceil((x+radius)*scale_x)+1):
+                """for coord in range(math.floor((x-radius)*scale_x),math.ceil((x+radius)*scale_x)+1):
                     if radius !=0:
                         addition_height = (coord - x * scale_x) ** 2 / amortization
                     else:
@@ -396,9 +407,10 @@ class PlotWidget(QWidget):
                     else:
                         painter.drawLine(cross_y + (height + cone_height) * scale_y, cross_x - x * scale_x,
                                          cross_y + height * scale_y, cross_x - coord)
+                """
                 # я молдаван, ещё ж основание осталось
-                # painter.drawLine(cross_y+height*scale_y,cross_x-(x-radius)*scale_x,
-                #                  cross_y+height*scale_y,cross_x-(x+radius)*scale_x)
+                painter.drawLine(cross_y+height*scale_y,px - radius*scale_x,
+                                 cross_y+height*scale_y,px + radius*scale_x)
                 """старый варик
                 # FURTHER BEYOND (первое применение QPainterPath)
                 # ваще прикол - кривая линия
@@ -410,10 +422,12 @@ class PlotWidget(QWidget):
                 painter.drawPath(path)
 
                 """
+                """
                 if cone_height >= 0 or (first_below_zero and not is_there_above_zero):
                     painter.drawEllipse(QPointF(cross_y+height*scale_y,cross_x-x*scale_x),scale_y//4,radius*scale_x)
                 if first_below_zero and cone_height < 0:
                     first_below_zero = False
+                """
 
     def draw_legend(self,painter,cones_data):
         scale_x, scale_y = self.scale_x, self.scale_y
