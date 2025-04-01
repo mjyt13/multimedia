@@ -2,7 +2,7 @@ import sys  # Импорт модуля sys для работы с систем�
 import math  # Импорт модуля math для математических операций (sin, cos, sqrt и т.д.).
 
 from PySide6.QtWidgets import (QApplication, QMainWindow, QVBoxLayout,
-                               QWidget, QLineEdit, QPushButton, QLabel, QHBoxLayout)
+                               QWidget, QLineEdit, QPushButton, QLabel, QHBoxLayout, QMessageBox)
 from PySide6.QtGui import QPainter, QPen, QColor, QPainterPath  # Импорт классов для рисования и работы с цветами.
 from PySide6.QtCore import Qt, QPointF  # Импорт базовых классов (флаги, точки и т.д.).
 
@@ -173,6 +173,7 @@ class PlotWidget(QWidget):
         """
         self.cell_height = 15
         self.cell_width = 20
+        self.razmetka = 16
 
     def update_data(self,functions,a,b,n):
         # считать функции
@@ -195,15 +196,21 @@ class PlotWidget(QWidget):
 
         # установить границы рисования
         print(f"for cells' height {(min(self.masses[0]))} -> {max(self.masses[0])}")
-        self.cell_height = math.ceil(max(self.masses[0]) - min(self.masses[0])) + 4  # высота в клетках
+        self.cell_height = math.ceil(max(self.masses[0]) - min(self.masses[0])) + 4 # высота в клетках
         self.cell_width = math.ceil(abs(min(self.masses[2]))) + math.ceil(max(self.masses[1])) + 2  # ширина в клетках
-        # со вторым чуть сложнее
-        # self.scale_y = 40; self.scale_x = 40
-        self.scale_y = 640 // self.cell_width # для ширины
-        self.scale_x = 480 // self.cell_height # для высоты
+        # со вторым сложнее
+
+        # новые штуки: специальный масштаб
+        # надо посмотреть по разнице между образцами, сколько пикселей будет для сетки, осей
+        self.scale_x = 480 / self.cell_height
+        self.scale_y = 640 / self.cell_width
+
+        minw = min(math.floor(min(self.masses[2])), 0)
+        maxw = max(math.ceil(max(self.masses[1])), 0)
+
 
         print("parental", self.width(),self.height())
-        print("cells ",self.cell_width,self.cell_height)
+        print("cells width ",self.cell_width,", cells height",self.cell_height)
         print("scales ",self.scale_y,self.scale_x)
         self.update()
 
@@ -211,15 +218,21 @@ class PlotWidget(QWidget):
         # Метод, вызываемый при перерисовке виджета.
         painter = QPainter(self)  # Создание объекта QPainter для рисования.
         painter.setRenderHint(QPainter.Antialiasing) # Сглаживание
-
-        self.draw_grid(painter)
-
         if len(self.functions)>0:
-            self.draw_grid(painter)
-            self.draw_points(painter, self.funcs)
-            self.draw_cones(painter, self.cones)
-            self.draw_axes(painter)
-            # self.draw_legend(painter, self.cones)
+            try:
+                self.draw_grid(painter)
+            except:
+                QMessageBox.warning(self, "уэуэу??", "сетка в говне")
+            # self.draw_points(painter, self.funcs)
+            try:
+                self.draw_cones(painter, self.cones)
+            except:
+                QMessageBox.warning(self,"эуэуэ? конусы","конусы в говне")
+            try:
+                self.draw_axes(painter)
+            except:
+                QMessageBox.warning(self,"дзэйз","оси в говне")
+            self.draw_legend(painter, self.cones)
 
     def crosses_line (self):
         scale_x, scale_y = self.scale_x, self.scale_y
@@ -230,6 +243,8 @@ class PlotWidget(QWidget):
 
         minw = min(math.floor(min(self.masses[2])), 0)
         maxw = max(math.ceil(max(self.masses[1])), 0)
+
+        print(f"клеток для ширины(значений) {maxw-minw+1} штук")
 
         minh = math.floor(min(self.masses[0]))
         maxh = math.ceil(max(self.masses[0]))
@@ -280,45 +295,83 @@ class PlotWidget(QWidget):
         painter.drawLine(20, 0, 20, w_height)
         painter.drawLine(w_width-20, 0,w_width - 20, w_height)
         """
-        painter.drawLine(cross_y, 0, cross_y, w_height)  # Ось X.
+        painter.drawLine(cross_y, 0, cross_y, 480)  # Ось X.
         # Подписи осей
-        painter.drawText(w_width - scale_y, w_height - scale_x, "Y")  # Подпись оси Y.
+        painter.drawText(w_width, w_height - scale_x, "Y")  # Подпись оси Y.
         painter.drawText(cross_y + scale_y//4, scale_x, "X")  # Подпись оси X.
 
         print(f"height is {used_height}, all height is = {w_height}")
         # Подписи масштаба для оси Y
         # Сделать условие на проверку минимума (он больше 0 - ставим 0, меньше - оставляем)
         ys = []; xs=[]
-        for y in range(minw, maxw+1):
+        cell_scale_y = (maxw-minw+1)
+        if cell_scale_y==9: cell_scale_y = 8
+        elif cell_scale_y==11: cell_scale_y = 10
+        elif 12 <= cell_scale_y < 16: cell_scale_y = 12
+        elif cell_scale_y > 16: cell_scale_y = 16
+        y = minw
+        while y <= maxw:
+            py = ((y-minw)/(maxw-minw)) * (used_width - 0) + scale_y
+            ys.append((y, py))
+            painter.drawText(py,490, f"{round(y,2)}")
+            y += (maxw - minw) / (cell_scale_y-1)
+
+        """for y in range(minw, maxw+1):
             py = ((y-minw)/(maxw-minw)) * (used_width - 0) + scale_y # 0 здесь чисто из-за того, что виджет начинается с 0
             ys.append((y, py))
-            painter.drawText(py, w_height - scale_x, f"{y}")  # Подпись значения.
-        # print(ys)
+            painter.drawText(py, w_height - 0.8 * scale_x, f"{y}")  # Подпись значения.
+        # print(ys)"""
 
         # Подписи масштаба для оси X (на самом деле начинать нужно со значения 2, ибо 0 отведен для доп. клетки)
-        for x in range(minh, maxh+1):
+        """for x in range(minh, maxh+1):
             px = (1-((x - minh)/(maxh - minh))) * used_height + 2 *scale_x
             xs.append((x,px))
             painter.drawText(cross_y, px, f"{x}")
         # print(xs)
-
         """
-        for x in range(minh,maxh+1):
-            px = (1-((x - minh)/(maxh - minh)))*w_height - scale_x
-            painter.drawText(cross_y, px, f"{x}")"""
+        cell_scale_x = (maxh-minh+1) # сколько клеток подписано
+        if cell_scale_x==9: cell_scale_x = 8
+        elif cell_scale_x==11: cell_scale_x = 10
+        elif 12 <= cell_scale_x < 16: cell_scale_x = 12
+        elif cell_scale_x > 16: cell_scale_x = 16
+        x = minh
+        print(f"minh = {minh}, maxh = {maxh}")
+        while x <= maxh:
+            px = (1 - ((x - minh) / (maxh - minh))) * used_height + 2 * scale_x
+            xs.append((x, px))
+            painter.drawText(650, px+3, f"{round(x,2)}")
+            x += (maxh - minh) / (cell_scale_x-1)
+        print(xs)
 
     def draw_grid(self, painter):
         # сетка
         scale_x, scale_y = self.scale_x, self.scale_y  # Масштаб для осей
-        w_width, w_height = self.cell_width * scale_y, self.cell_height * scale_x  # Получаем размеры виджета.
+        print(f"GRID: scale_x={scale_x}, scale_y={scale_y}")
+        if scale_y < self.razmetka:
+            scale_y = self.razmetka
+        if scale_x < self.razmetka:
+            scale_x = self.razmetka
+        w_width, w_height = 640,480
 
         # painter.setPen(QPen(Qt.gray, 2))
         painter.setPen(QPen(Qt.gray, 1.5, Qt.DotLine))
-        for px in range(0,w_width+scale_y,scale_y):
-            painter.drawLine(px,0,px,w_height)
+        px = 0
+        print(f"px {scale_y} is here I HATE NI")
+        while px<=640:
+            painter.drawLine(px, 0, px, w_height)
+            px += scale_y
 
-        for py in range(0,w_height+scale_x,scale_x):
-            painter.drawLine(0,py,w_width,py)
+        py = 0
+        print(f"py {scale_x} is here I HATE NI")
+        while py<=480:
+            painter.drawLine(0, py, w_width, py)
+            py += scale_x
+
+        painter.setPen(QPen(Qt.black, 1.5,Qt.SolidLine))
+        painter.drawLine(640, 0, 640, 480)
+        painter.drawLine(0, 480, 640, 480)
+        painter.drawLine(0, 0, 0, 480)
+        painter.drawLine(0, 0, 640, 0)
 
     def draw_points(self, painter, funcs):
         scale_x, scale_y = self.scale_x, self.scale_y
@@ -380,12 +433,17 @@ class PlotWidget(QWidget):
                 # в эой строке рисуется нижняя линия треугольника (конуса)
                 painter.drawLine(cross_y+(height+cone_height)*scale_y,px,
                                  cross_y+height*scale_y,px - radius*scale_x)
-                # а в этой уже верхняя (там y2 просто использует cross_x-(x+radius)*scale_x для большего вычитаемого
-                # ,что будет давать ПОДЪЁМ
+                # а в этой уже верхняя (там y2 просто использует px + radius*scale_x для большего вычитаемого
+                # ,что будет давать ПОДЪЁМ)
                 painter.drawLine(cross_y+(height+cone_height)*scale_y,px,
                                  cross_y+height*scale_y,px + radius*scale_x)
                 #а сейчас вообще будет цикл, чтоб было заполнение
                 heights = []
+
+                for coord in range(math.floor(px - radius*scale_x),math.ceil(px + radius*scale_x)):
+                    painter.drawLine(cross_y + (height + cone_height) * scale_y, px,
+                                     cross_y + height * scale_y,coord)
+
                 for coord in range(math.floor((x - radius) * scale_x), math.floor((x + radius) * scale_x) + 1):
                     heights.append((coord - x * scale_x) ** 2)
                 amortization = max(heights)
@@ -431,16 +489,17 @@ class PlotWidget(QWidget):
 
     def draw_legend(self,painter,cones_data):
         scale_x, scale_y = self.scale_x, self.scale_y
-        w_width,w_height = self.cell_width * scale_x, self.cell_height * scale_y
-        legend_width, legend_height = w_width+scale_x, 2*scale_y
+        w_width,w_height = self.cell_width * scale_y, self.cell_height * scale_x
+        legend_width, legend_height = 24, 560
+        print(f"legend_width={legend_width}, legend_height={legend_height}")
         color_num = 0
         for cone in cones_data[0][1]:
             color = COLOR_PALETTE[color_num % len(COLOR_PALETTE)]
             painter.setPen(QPen(color, 4))
-            painter.drawLine(legend_width,legend_height,legend_width+scale_x,legend_height)
+            painter.drawLine(legend_width,legend_height,legend_width+64,legend_height)
             function_name = self.functions[color_num % len(self.functions)]
-            painter.drawText(legend_width+2*scale_x,legend_height,function_name)
-            legend_height += scale_y
+            painter.drawText(legend_width+80,legend_height,function_name)
+            legend_height += 20
             color_num+=1
         pass
 
