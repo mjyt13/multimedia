@@ -3,7 +3,7 @@ import math  # Импорт модуля math для математически�
 
 from PySide6.QtWidgets import (QApplication, QMainWindow, QVBoxLayout,
                                QWidget, QLineEdit, QPushButton, QLabel, QHBoxLayout, QMessageBox)
-from PySide6.QtGui import QPainter, QPen, QColor, QPainterPath  # Импорт классов для рисования и работы с цветами.
+from PySide6.QtGui import QPainter, QPen, QColor, QPainterPath, QBrush  # Импорт классов для рисования и работы с цветами.
 from PySide6.QtCore import Qt, QPointF  # Импорт базовых классов (флаги, точки и т.д.).
 
 # Предопределённая палитра цветов для графиков
@@ -34,7 +34,10 @@ class ConesDataBase:
             i = a
             while i <= b:
                 try:
-                    values.append((i, func(i)))
+                    if func(i) < 1e6:
+                        values.append((i, func(i)))
+                    else:
+                        values.append((i,0))
                 except:
                     values.append((i, 0))
                 i += round(abs(b - a) / (n-1),3)
@@ -67,7 +70,10 @@ class ConesDataBase:
                 expr = function
                 func = lambda x, e=expr: eval(e, {"math": math, "x": x})
                 try:
-                    values.append((i, func(i)))
+                    if func(i) < 1e6:
+                        values.append((i, func(i)))
+                    else:
+                        values.append((i,0))
                 except:
                     values.append((i, 0))
             fvalues.append(values.copy())
@@ -129,7 +135,7 @@ class ConesDataBase:
 
     def __init__(self):
         self.functions = []
-        self.used_functions = ['-x/5','x','math.exp(-x**2+math.cos(x))','1/x','-2*x']
+        self.used_functions = ['-x/5','x','math.exp(-x**2+math.cos(x))','1/x','math.sin(x)']
 
     def setfunctions(self,funcs):
         self.functions = funcs.copy()
@@ -424,22 +430,29 @@ class PlotWidget(QWidget):
             for cone in cones[1]:
                 color = COLOR_PALETTE[color_num % len(COLOR_PALETTE)]
                 painter.setPen(QPen(color, 1))
-                painter.setBrush(color)
-                color_num += 1
+
                 # не могу так, надо вынести параметры
                 height = cone[0]; cone_height = cone[1]; radius = cone[2]
                 # это какой-то прикол
+                direction = 1 if (height + cone_height) > 0 else -1
 
+                apex_y = cross_y + (height + cone_height) * scale_y
+                apex_x = px
+
+                base_center_y = cross_y + height * scale_y
+                base_left_x = px - radius * scale_x
+                base_right_x = px + radius * scale_x
+                control_y = base_center_y + radius * direction * 5
                 # в эой строке рисуется нижняя линия треугольника (конуса)
-                painter.drawLine(cross_y+(height+cone_height)*scale_y,px,
-                                 cross_y+height*scale_y,px - radius*scale_x)
+                # painter.drawLine(apex_y,apex_x,
+                #                  base_center_y,base_left_x)
                 # а в этой уже верхняя (там y2 просто использует px + radius*scale_x для большего вычитаемого
                 # ,что будет давать ПОДЪЁМ)
-                painter.drawLine(cross_y+(height+cone_height)*scale_y,px,
-                                 cross_y+height*scale_y,px + radius*scale_x)
+                # painter.drawLine(apex_y,apex_x,
+                #                  base_center_y,base_right_x)
                 #а сейчас вообще будет цикл, чтоб было заполнение
                 heights = []
-
+                """
                 for coord in range(math.floor(px - radius*scale_x),math.ceil(px + radius*scale_x)):
                     painter.drawLine(cross_y + (height + cone_height) * scale_y, px,
                                      cross_y + height * scale_y,coord)
@@ -448,7 +461,7 @@ class PlotWidget(QWidget):
                     heights.append((coord - x * scale_x) ** 2)
                 amortization = max(heights)
                 # print(f"x {x} cross_y {cross_y} height {height} cone height {cone_height}")
-
+                """
                 """for coord in range(math.floor((x-radius)*scale_x),math.ceil((x+radius)*scale_x)+1):
                     if radius !=0:
                         addition_height = (coord - x * scale_x) ** 2 / amortization
@@ -467,8 +480,21 @@ class PlotWidget(QWidget):
                                          cross_y + height * scale_y, cross_x - coord)
                 """
                 # я молдаван, ещё ж основание осталось
-                painter.drawLine(cross_y+height*scale_y,px - radius*scale_x,
-                                 cross_y+height*scale_y,px + radius*scale_x)
+                path = QPainterPath()
+                path.moveTo(apex_y,apex_x)
+                path.lineTo(base_center_y,base_left_x)
+                path.quadTo(control_y,px,
+                            base_center_y,base_right_x)
+                path.closeSubpath()
+
+                brush = QBrush(color)
+                painter.fillPath(path, brush)
+
+                painter.setPen(QPen(Qt.black,1))
+                painter.drawPath(path)
+
+                color_num += 1
+                # painter.drawLine(base_center_y,base_left_x,base_center_y,base_right_x)
                 """старый варик
                 # FURTHER BEYOND (первое применение QPainterPath)
                 # ваще прикол - кривая линия
