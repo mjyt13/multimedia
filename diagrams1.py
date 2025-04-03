@@ -1,5 +1,6 @@
 import sys  # Импорт модуля sys для работы с системными функциями (например, завершение программы).
 import math  # Импорт модуля math для математических операций (sin, cos, sqrt и т.д.).
+import numpy as np
 
 from PySide6.QtWidgets import (QApplication, QMainWindow, QVBoxLayout,
                                QWidget, QLineEdit, QPushButton, QLabel, QHBoxLayout, QMessageBox)
@@ -31,8 +32,9 @@ class ConesDataBase:
             expr = function
             func = lambda x, e=expr: eval(e, {"math": math, "x": x})
             values = []
-            i = a
-            while i <= b:
+            np_args = np.linspace(a, b, num=n)
+            args = np_args.tolist()
+            for i in args:
                 try:
                     if func(i) < 1e6:
                         values.append((i, func(i)))
@@ -40,7 +42,6 @@ class ConesDataBase:
                         values.append((i,0))
                 except:
                     values.append((i, 0))
-                i += round(abs(b - a) / (n-1),3)
             fvalues.append(values.copy())
             values.clear()
         return fvalues
@@ -63,8 +64,9 @@ class ConesDataBase:
     # функция, что даёт данные не в виде (функция: арг1, арг2,...), а в виде(арг: ф1, ф2,...)
     def graph_points(self,a, b, n):
         fvalues = []
-        i = a
-        while i <= b:
+        np_args = np.linspace(a, b, num=n)
+        args = np_args.tolist()
+        for i in args:
             values = []
             for function in self.functions:
                 expr = function
@@ -78,7 +80,6 @@ class ConesDataBase:
                     values.append((i, 0))
             fvalues.append(values.copy())
             values.clear()
-            i += round(abs(b - a) / (n-1),3)
         return fvalues
 
     # эта функция для изначального списка точек, который просто имеет другой вид
@@ -139,23 +140,16 @@ class ConesDataBase:
 
     def setfunctions(self,funcs):
         self.functions = funcs.copy()
-"""        self.funcs = self.function_points(-1,5,7)
-# print("непонятно чето, дадим массивы аргументов, отрицательных и положительных значений для этих аргументов")
-        self.masses = self.define_data(self.funcs)
-        self.arg_funcs = self.graph_points(-1,5,7)
-        self.cone_params = self.define_graph(self.arg_funcs)
-        self.cones = self.define_cones(self.cone_params)"""
 
 class PlotWidget(QWidget):
     def __init__(self,parent=None):
         super().__init__(parent)  # Инициализация родительского класса QWidget.
+        self.scale_x, self.scale_y = None, None
+        self.vert_lines = 9
         print(self.width(),self.height())
         self.cones_db = ConesDataBase()
         self.functions = []  # Список для хранения функций
-        self.color_index = 0  # Индекс для перебора цветов из палитры.
-        print("class PlotWidget",self.functions)
-        # в первом построении пусть будет 40 пикселей на 1 клетку
-        self.scale_y = 40;self.scale_x = 40
+        self.color_index = 0  # Индекс для перебора цветов из палитры
 
         self.funcs = None
         self.masses = None
@@ -191,6 +185,7 @@ class PlotWidget(QWidget):
         for func in self.funcs:
             print(func)
         self.masses = self.cones_db.define_data(self.funcs)
+        print(self.masses)
         # определить размеры конусов и их положение
         self.arg_funcs = self.cones_db.graph_points(a, b, n)
         self.cones_params = self.cones_db.define_graph(self.arg_funcs)
@@ -202,18 +197,14 @@ class PlotWidget(QWidget):
 
         # установить границы рисования
         print(f"for cells' height {(min(self.masses[0]))} -> {max(self.masses[0])}")
-        self.cell_height = math.ceil(max(self.masses[0]) - min(self.masses[0])) + 4 # высота в клетках
-        self.cell_width = math.ceil(abs(min(self.masses[2]))) + math.ceil(max(self.masses[1])) + 2  # ширина в клетках
+        self.cell_height  = n + 1 # высота в клетках
+        self.cell_width = self.vert_lines + 1  # ширина в клетках
         # со вторым сложнее
 
         # новые штуки: специальный масштаб
         # надо посмотреть по разнице между образцами, сколько пикселей будет для сетки, осей
         self.scale_x = 480 / self.cell_height
         self.scale_y = 640 / self.cell_width
-
-        minw = min(math.floor(min(self.masses[2])), 0)
-        maxw = max(math.ceil(max(self.masses[1])), 0)
-
 
         print("parental", self.width(),self.height())
         print("cells width ",self.cell_width,", cells height",self.cell_height)
@@ -232,6 +223,7 @@ class PlotWidget(QWidget):
             # self.draw_points(painter, self.funcs)
             try:
                 self.draw_cones(painter, self.cones)
+                print("KONUSI V PORYADE")
             except:
                 QMessageBox.warning(self,"эуэуэ? конусы","конусы в говне")
             try:
@@ -241,54 +233,28 @@ class PlotWidget(QWidget):
             self.draw_legend(painter, self.cones)
 
     def crosses_line (self):
-        scale_x, scale_y = self.scale_x, self.scale_y
-        w_width = self.cell_width * scale_y
-        w_height = self.cell_height * scale_x # pixels height
+        minw = min(min(self.masses[2]), 0)
+        maxw = max(max(self.masses[1]), 0)
 
-        # print("размер crosses:", w_width, w_height)
-
-        minw = min(math.floor(min(self.masses[2])), 0)
-        maxw = max(math.ceil(max(self.masses[1])), 0)
-
-        print(f"клеток для ширины(значений) {maxw-minw+1} штук")
-
-        minh = math.floor(min(self.masses[0]))
-        maxh = math.ceil(max(self.masses[0]))
-
-        y_axes = []
-        for i in range(minw, maxw + 1): y_axes.append(i)
-        # print(f"y={y_axes}")
-        cross_cell = y_axes.index(0) + 1
-        cross_y = cross_cell * scale_y
-
-        """x_axes = []
-        for i in range(minh, maxh+1): x_axes.append(i)
-        print(f"x={x_axes}")
-        cross_cell = x_axes.index(0) + 2
-        cross_x = w_height - cross_cell * scale_x
-        """
+        npcells_y = np.linspace(minw,maxw,num=self.vert_lines)
+        cells_y = npcells_y.tolist()
+        cross_y = ((0-minw)/(maxw-minw)) * (640-2*self.scale_y) + self.scale_y
 
         return cross_y
 
     def draw_axes(self, painter):
-
         scale_x, scale_y = self.scale_x, self.scale_y  # Масштаб для осей
         w_width, w_height = self.cell_width * scale_y, self.cell_height * scale_x  # размеры виджета
 
         crosses = self.crosses_line()
 
+        minw = min(min(self.masses[2]), 0)
+        maxw = max(max(self.masses[1]), 0)
+        used_width = 640 - 2 * scale_y
 
-        minw = min(math.floor(min(self.masses[2])),0)
-        maxw = max(math.ceil(max(self.masses[1])),0)
-        used_width = (maxw-minw)*scale_y
-
-
-        """часть для определения оси X"""
-        minh = math.floor(min(self.masses[0])) #
-        maxh = math.ceil(max(self.masses[0])) # задаваемое b)
-        # может быть больше нуля
-        used_height = (maxh-minh)*scale_x
-        # used_height = crosses[0]
+        minh = min(self.masses[0]) # a
+        maxh = max(self.masses[0]) # b
+        used_height = w_height - 1 * scale_x
 
         cross_y = crosses
         print(f"линия нулевая{cross_y}")
@@ -303,25 +269,22 @@ class PlotWidget(QWidget):
         """
         painter.drawLine(cross_y, 0, cross_y, 480)  # Ось X.
         # Подписи осей
-        painter.drawText(w_width, w_height - scale_x, "Y")  # Подпись оси Y.
-        painter.drawText(cross_y + scale_y//4, scale_x, "X")  # Подпись оси X.
+        painter.drawText(650, w_height - scale_x, "Y")  # Подпись оси Y.
+        painter.drawText(cross_y + scale_y/4, scale_x, "X")  # Подпись оси X.
 
         print(f"height is {used_height}, all height is = {w_height}")
         # Подписи масштаба для оси Y
         # Сделать условие на проверку минимума (он больше 0 - ставим 0, меньше - оставляем)
-        ys = []; xs=[]
-        cell_scale_y = (maxw-minw+1)
-        if cell_scale_y==9: cell_scale_y = 8
-        elif cell_scale_y==11: cell_scale_y = 10
-        elif 12 <= cell_scale_y < 16: cell_scale_y = 12
-        elif cell_scale_y > 16: cell_scale_y = 16
-        y = minw
-        while y <= maxw:
-            py = ((y-minw)/(maxw-minw)) * (used_width - 0) + scale_y
-            ys.append((y, py))
-            painter.drawText(py,490, f"{round(y,2)}")
-            y += (maxw - minw) / (cell_scale_y-1)
+        nps_y = np.linspace(minw, maxw, num=self.vert_lines)
+        cells_y = nps_y.tolist()
 
+        ys = []; xs=[]
+        cell_scale_y = len(cells_y)
+        for i in range(len(cells_y)):
+            py = scale_y * (1+i)
+            y = cells_y[i]
+            ys.append((y,py))
+            painter.drawText(py-7, 490, f"{round(y, 2)}")
         """for y in range(minw, maxw+1):
             py = ((y-minw)/(maxw-minw)) * (used_width - 0) + scale_y # 0 здесь чисто из-за того, что виджет начинается с 0
             ys.append((y, py))
@@ -335,18 +298,15 @@ class PlotWidget(QWidget):
             painter.drawText(cross_y, px, f"{x}")
         # print(xs)
         """
-        cell_scale_x = (maxh-minh+1) # сколько клеток подписано
-        if cell_scale_x==9: cell_scale_x = 8
-        elif cell_scale_x==11: cell_scale_x = 10
-        elif 12 <= cell_scale_x < 16: cell_scale_x = 12
-        elif cell_scale_x > 16: cell_scale_x = 16
-        x = minh
-        print(f"minh = {minh}, maxh = {maxh}")
-        while x <= maxh:
-            px = (1 - ((x - minh) / (maxh - minh))) * used_height + 2 * scale_x
+        cell_scale_x = len(self.masses[0]) # сколько клеток подписано
+        npx_s = np.linspace(minh,maxh,num=cell_scale_x)
+        x_s = npx_s.tolist()
+        for i in range(len(x_s)):
+            px = used_height - scale_x*i
+            x = x_s[i]
             xs.append((x, px))
-            painter.drawText(650, px+3, f"{round(x,2)}")
-            x += (maxh - minh) / (cell_scale_x-1)
+            painter.drawText(650, px + 3, f"{round(x, 2)}")
+
         print(xs)
 
     def draw_grid(self, painter):
@@ -404,18 +364,20 @@ class PlotWidget(QWidget):
         scale_x, scale_y = self.scale_x, self.scale_y
 
         crosses = self.crosses_line()
-        # cross_x = crosses[0]
         cross_y = crosses
 
-        minh = math.floor(min(self.masses[0]))  #
-        maxh = math.ceil(max(self.masses[0]))
+        minw_minus = min(min(self.masses[2]), 0)
+        maxw_minus = 0
+        maxw_plus = max(max(self.masses[1]), 0)
+        minw_plus = 0
 
-        used_height = (maxh - minh) * scale_x
+        used_height = 480 - 1 * scale_x
 
         # будет здесь отрисовка конусов
-        for cones in cones_data:
+        for i in range (len(cones_data)):
+            cones = cones_data[i]
             x = cones[0] # это аргумент в значении
-            px = (1 - ((x - minh) / (maxh - minh))) * used_height + 2 * scale_x # это аргумент в пикселях
+            px = used_height - i * scale_x # это аргумент в пикселях
             color_num = 0
             # часть сугубо на проверку наличия конуса с положительным значением + учитывание прикола с отрицательным
             first_below_zero = True
@@ -436,10 +398,27 @@ class PlotWidget(QWidget):
                 # это какой-то прикол
                 direction = 1 if (height + cone_height) > 0 else -1
 
-                apex_y = cross_y + (height + cone_height) * scale_y
+                y_h = height
+                y_ch = height+cone_height
+                if direction < 0:
+                    try:
+                        h = ((y_h-maxw_minus)/(minw_minus-maxw_minus)) * (cross_y-scale_y) * direction
+                        ch = ((y_ch-maxw_minus)/(minw_minus-maxw_minus)) * (cross_y-scale_y) * direction
+                    except:
+                        print(f"v minuse na y_h={y_h} ili y_ch={y_ch} naebulsya")
+                        h = 0; ch = 0
+                else:
+                    try:
+                        h = ((y_h-minw_plus)/(maxw_plus-minw_plus)) * (640-scale_y-cross_y)
+                        ch = ((y_ch-minw_plus)/(maxw_plus-minw_plus)) * (640-scale_y-cross_y)
+                    except:
+                        print(f"v pluse na y_h={y_h} ili y_ch={y_ch} naebulsya")
+                        h = 0; ch = 0
+                print(f"ch={ch}, h={h}")
+                apex_y = cross_y + ch
                 apex_x = px
 
-                base_center_y = cross_y + height * scale_y
+                base_center_y = cross_y + h
                 base_left_x = px - radius * scale_x
                 base_right_x = px + radius * scale_x
                 control_y = base_center_y + radius * direction * 5
@@ -512,6 +491,7 @@ class PlotWidget(QWidget):
                 if first_below_zero and cone_height < 0:
                     first_below_zero = False
                 """
+
 
     def draw_legend(self,painter,cones_data):
         scale_x, scale_y = self.scale_x, self.scale_y

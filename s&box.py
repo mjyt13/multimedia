@@ -1,6 +1,9 @@
-minh = -5
-maxh = 3
-x = minh
-while x <= maxh:
-    print(round(x,3))
-    x += (maxh-minh)/(maxh-minh-2)
+import numpy as np
+minh = 0
+maxh = 0.5
+
+cells_x = np.linspace(minh,maxh,num=8)
+print(cells_x,type(cells_x))
+
+cells_poss = cells_x.tolist()
+print(cells_poss,type(cells_poss))
