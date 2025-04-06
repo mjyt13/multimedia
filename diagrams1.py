@@ -156,21 +156,6 @@ class PlotWidget(QWidget):
         self.arg_funcs = None
         self.cones_params = None
         self.cones = None
-        """
-        self.funcs = self.cones_db.function_points(0,0,1)
-        self.masses = self.cones_db.define_data(self.funcs)
-        self.arg_funcs = self.cones_db.graph_points(0,0,1)
-        
-        self.cones_params = self.cones_db.define_graph(self.arg_funcs)
-        for cone_params in self.cones_params:
-            print(cone_params)
-        self.cones = self.cones_db.define_cones(self.cones_params)
-        for cone_data in self.cones:
-            print(cone_data)
-
-        self.height = math.ceil(abs(min(self.masses[0]))) + math.ceil(max(self.masses[0])) + 4
-        self.width = math.ceil(abs(min(self.masses[2]))) + math.ceil(max(self.masses[1])) + 2
-        """
         self.cell_height = 15
         self.cell_width = 20
         self.razmetka = 16
@@ -219,17 +204,16 @@ class PlotWidget(QWidget):
             try:
                 self.draw_grid(painter)
             except:
-                QMessageBox.warning(self, "уэуэу??", "сетка в говне")
-            # self.draw_points(painter, self.funcs)
+                QMessageBox.warning(self, "уэуэу??", "сетка упала")
             try:
                 self.draw_cones(painter, self.cones)
                 print("KONUSI V PORYADE")
             except:
-                QMessageBox.warning(self,"эуэуэ? конусы","конусы в говне")
+                QMessageBox.warning(self,"эуэуэ? конусы","конусы упали")
             try:
                 self.draw_axes(painter)
             except:
-                QMessageBox.warning(self,"дзэйз","оси в говне")
+                QMessageBox.warning(self,"дзэйз","оси упали")
             self.draw_legend(painter, self.cones)
 
     def crosses_line (self):
@@ -237,7 +221,6 @@ class PlotWidget(QWidget):
         maxw = max(max(self.masses[1]), 0)
 
         npcells_y = np.linspace(minw,maxw,num=self.vert_lines)
-        cells_y = npcells_y.tolist()
         cross_y = ((0-minw)/(maxw-minw)) * (640-2*self.scale_y) + self.scale_y
 
         return cross_y
@@ -259,18 +242,8 @@ class PlotWidget(QWidget):
         cross_y = crosses
         print(f"линия нулевая{cross_y}")
 
-        # Рисуем оси
         painter.setPen(QPen(Qt.black, 2))  # Устанавливаем черный цвет и толщину линии.
-
-        """
-        painter.drawLine(0, 20, w_width, 20)
-        painter.drawLine(20, 0, 20, w_height)
-        painter.drawLine(w_width-20, 0,w_width - 20, w_height)
-        """
         painter.drawLine(cross_y, 0, cross_y, 480)  # Ось X.
-        # Подписи осей
-        painter.drawText(650, w_height - scale_x, "Y")  # Подпись оси Y.
-        painter.drawText(cross_y + scale_y/4, scale_x, "X")  # Подпись оси X.
 
         print(f"height is {used_height}, all height is = {w_height}")
         # Подписи масштаба для оси Y
@@ -279,25 +252,13 @@ class PlotWidget(QWidget):
         cells_y = nps_y.tolist()
 
         ys = []; xs=[]
-        cell_scale_y = len(cells_y)
         for i in range(len(cells_y)):
             py = scale_y * (1+i)
             y = cells_y[i]
             ys.append((y,py))
             painter.drawText(py-7, 490, f"{round(y, 2)}")
-        """for y in range(minw, maxw+1):
-            py = ((y-minw)/(maxw-minw)) * (used_width - 0) + scale_y # 0 здесь чисто из-за того, что виджет начинается с 0
-            ys.append((y, py))
-            painter.drawText(py, w_height - 0.8 * scale_x, f"{y}")  # Подпись значения.
-        # print(ys)"""
 
         # Подписи масштаба для оси X (на самом деле начинать нужно со значения 2, ибо 0 отведен для доп. клетки)
-        """for x in range(minh, maxh+1):
-            px = (1-((x - minh)/(maxh - minh))) * used_height + 2 *scale_x
-            xs.append((x,px))
-            painter.drawText(cross_y, px, f"{x}")
-        # print(xs)
-        """
         cell_scale_x = len(self.masses[0]) # сколько клеток подписано
         npx_s = np.linspace(minh,maxh,num=cell_scale_x)
         x_s = npx_s.tolist()
@@ -339,27 +300,6 @@ class PlotWidget(QWidget):
         painter.drawLine(0, 0, 0, 480)
         painter.drawLine(0, 0, 640, 0)
 
-    def draw_points(self, painter, funcs):
-        scale_x, scale_y = self.scale_x, self.scale_y
-        w_width, w_height = self.cell_width * scale_y, self.cell_height * scale_x
-        crosses = self.crosses_line()
-        # cross_x = crosses[0]
-        cross_y = crosses
-
-        minh = math.floor(min(self.masses[0]))  #
-        maxh = math.ceil(max(self.masses[0]))
-
-        used_height = (maxh - minh) * scale_x
-
-        color_num = 0
-        for fval in funcs:
-            color = COLOR_PALETTE[color_num % len(COLOR_PALETTE)]
-            painter.setPen(QPen(color, 5))
-            color_num+= 1
-            for (x,y) in fval:
-                px = (1 - ((x - minh) / (maxh - minh))) * used_height + 2 * scale_x
-                painter.drawPoint(cross_y+y*scale_y,px)
-
     def draw_cones(self,painter,cones_data):
         scale_x, scale_y = self.scale_x, self.scale_y
 
@@ -372,6 +312,7 @@ class PlotWidget(QWidget):
         minw_plus = 0
 
         used_height = 480 - 1 * scale_x
+        curve_scale = 30
 
         # будет здесь отрисовка конусов
         for i in range (len(cones_data)):
@@ -421,43 +362,7 @@ class PlotWidget(QWidget):
                 base_center_y = cross_y + h
                 base_left_x = px - radius * scale_x
                 base_right_x = px + radius * scale_x
-                control_y = base_center_y + radius * direction * 5
-                # в эой строке рисуется нижняя линия треугольника (конуса)
-                # painter.drawLine(apex_y,apex_x,
-                #                  base_center_y,base_left_x)
-                # а в этой уже верхняя (там y2 просто использует px + radius*scale_x для большего вычитаемого
-                # ,что будет давать ПОДЪЁМ)
-                # painter.drawLine(apex_y,apex_x,
-                #                  base_center_y,base_right_x)
-                #а сейчас вообще будет цикл, чтоб было заполнение
-                heights = []
-                """
-                for coord in range(math.floor(px - radius*scale_x),math.ceil(px + radius*scale_x)):
-                    painter.drawLine(cross_y + (height + cone_height) * scale_y, px,
-                                     cross_y + height * scale_y,coord)
-
-                for coord in range(math.floor((x - radius) * scale_x), math.floor((x + radius) * scale_x) + 1):
-                    heights.append((coord - x * scale_x) ** 2)
-                amortization = max(heights)
-                # print(f"x {x} cross_y {cross_y} height {height} cone height {cone_height}")
-                """
-                """for coord in range(math.floor((x-radius)*scale_x),math.ceil((x+radius)*scale_x)+1):
-                    if radius !=0:
-                        addition_height = (coord - x * scale_x) ** 2 / amortization
-                    else:
-                        addition_height = 0
-
-                    if cone_height < 0:
-                        if first_below_zero:
-                            painter.drawLine(cross_y + (height + cone_height) * scale_y, cross_x - x * scale_x,
-                                             cross_y + height * scale_y, cross_x - coord)
-                        else:
-                            painter.drawLine(cross_y + (height+cone_height) * scale_y, cross_x - x * scale_x,
-                                         cross_y + (height - 1 + addition_height) * scale_y//4, cross_x - coord)
-                    else:
-                        painter.drawLine(cross_y + (height + cone_height) * scale_y, cross_x - x * scale_x,
-                                         cross_y + height * scale_y, cross_x - coord)
-                """
+                control_y = base_center_y + radius * direction * curve_scale
                 # я молдаван, ещё ж основание осталось
                 path = QPainterPath()
                 path.moveTo(apex_y,apex_x)
@@ -470,27 +375,43 @@ class PlotWidget(QWidget):
                 painter.fillPath(path, brush)
 
                 painter.setPen(QPen(Qt.black,1))
-                painter.drawPath(path)
+                painter.drawLine(apex_y,apex_x,base_center_y,base_left_x)
+                painter.drawLine(apex_y,apex_x,base_center_y,base_right_x)
 
-                color_num += 1
                 # painter.drawLine(base_center_y,base_left_x,base_center_y,base_right_x)
-                """старый варик
-                # FURTHER BEYOND (первое применение QPainterPath)
-                # ваще прикол - кривая линия
-                path = QPainterPath()
-                path.moveTo(cross_y+height*scale_y,cross_x-(x-radius)*scale_x)
-                k = 0.5; angle = -0.5
-                contr_y = height + k * angle
-                path.quadTo(cross_y+contr_y*scale_y,cross_x-x*scale_x,cross_y+height*scale_y,cross_x-(x+radius)*scale_x)
-                painter.drawPath(path)
-
-                """
-                """
+                if cone_height < 0:
+                    painter.drawPath(path)
                 if cone_height >= 0 or (first_below_zero and not is_there_above_zero):
-                    painter.drawEllipse(QPointF(cross_y+height*scale_y,cross_x-x*scale_x),scale_y//4,radius*scale_x)
+                    control_y_neg = base_center_y + radius * direction * (-curve_scale)
+                    painter.setPen(QPen(color, 1))
+                    # стереть черту основания конуса
+                    path = QPainterPath()
+                    path.moveTo(base_center_y, base_left_x)
+                    path.quadTo(control_y,px,
+                                base_center_y,base_left_x)
+                    painter.drawPath(path)
+                    # для основания(корыта) - цвет
+
+                    path = QPainterPath()
+                    path.moveTo(base_center_y,base_left_x)
+                    path.quadTo(control_y, px,
+                                base_center_y, base_right_x)
+                    path.quadTo(control_y_neg,px,
+                                base_center_y,base_left_x)
+                    path.closeSubpath()
+                    painter.fillPath(path,brush)
+
+                    # черты для основания конуса
+                    path = QPainterPath()
+                    path.moveTo(base_center_y, base_left_x)
+                    path.quadTo(control_y_neg, px,
+                                base_center_y, base_right_x)
+                    painter.setPen(QPen(Qt.black, 1))
+                    painter.drawPath(path)
                 if first_below_zero and cone_height < 0:
                     first_below_zero = False
-                """
+                color_num += 1
+
 
 
     def draw_legend(self,painter,cones_data):
