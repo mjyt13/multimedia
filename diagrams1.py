@@ -136,8 +136,8 @@ class ConesDataBase:
 
     def __init__(self):
         self.functions = []
-        self.used_functions = ['-x/5','x','math.exp(-x**2+math.cos(x))','1/x','math.sin(x)']
-
+        self.used_functions = ['-x/5','x','math.exp(-x**2+math.cos(x))','1/x','math.sin(x)','math.log2(x)',
+                               'math.atan(math.exp(x)+7*x)','(math.sin(x))/x','math.cosh(-0.5*x**3+math.log10(x))']
     def setfunctions(self,funcs):
         self.functions = funcs.copy()
 
@@ -417,13 +417,13 @@ class PlotWidget(QWidget):
     def draw_legend(self,painter,cones_data):
         scale_x, scale_y = self.scale_x, self.scale_y
         w_width,w_height = self.cell_width * scale_y, self.cell_height * scale_x
-        legend_width, legend_height = 24, 560
+        legend_width, legend_height = 664, 40
         print(f"legend_width={legend_width}, legend_height={legend_height}")
         color_num = 0
         for cone in cones_data[0][1]:
             color = COLOR_PALETTE[color_num % len(COLOR_PALETTE)]
             painter.setPen(QPen(color, 4))
-            painter.drawLine(legend_width,legend_height,legend_width+64,legend_height)
+            painter.drawLine(legend_width,legend_height,legend_width+60,legend_height)
             function_name = self.functions[color_num % len(self.functions)]
             painter.drawText(legend_width+80,legend_height,function_name)
             legend_height += 20
